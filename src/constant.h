@@ -8,7 +8,11 @@
 
 #define MAX_SPEED 49.5
 
-#define MAX_ACC .224;
+#define MAX_ACC 2.24
+
+#define TIME_INTV 0.02
+
+#define TARGET_X 30.0
 
 
 

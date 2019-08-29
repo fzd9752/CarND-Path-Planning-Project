@@ -9,8 +9,8 @@
 #include "json.hpp"
 #include "spline.h"
 
-#include "vehicle.h"
 #include "constant.h"
+#include "planner.h"
 
 
 
@@ -56,7 +56,7 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
-    double ref_vel = 8.0;
+    double ref_vel = 5.0;
     int lane = 1; // 0-left, 1-middle, 2-right
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
@@ -113,7 +113,6 @@ int main() {
 
 
             int prev_size = previous_path_x.size();
-            int next_size = 50 - prev_size;
 
 
             // Prediciton using sensor fusion
@@ -122,8 +121,8 @@ int main() {
             }
 
             bool change_lane = false;
-            vector<Vehicle> left_veh;
-            vector<Vehicle> right_veh;
+//            vector<Vehicle> left_veh;
+//            vector<Vehicle> right_veh;
 
 
             for (int i=0; i < sensor_fusion.size(); i++)
@@ -194,75 +193,78 @@ int main() {
                 ptsy.push_back((ref_y));
             }
 
-            //add three points ahead current state, space 30m
-            vector<double> next_wp0 = getXY(car_s + 30, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-            vector<double> next_wp1 = getXY(car_s + 60, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-            vector<double> next_wp2 = getXY(car_s + 90, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-
-            ptsx.push_back(next_wp0[0]);
-            ptsx.push_back(next_wp1[0]);
-            ptsx.push_back(next_wp2[0]);
-
-            ptsy.push_back(next_wp0[1]);
-            ptsy.push_back(next_wp1[1]);
-            ptsy.push_back(next_wp2[1]);
-
-
-
-            // transformation to local car's coordinates
-            // car at (0, 0) and yaw 0 degree
-            for (int i = 0; i < ptsx.size(); i++) {
-                // shift car reference angle to 0 degree
-                double shift_x = ptsx[i] - ref_x;
-                double shift_y = ptsy[i] - ref_y;
-
-                ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
-                ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
-
-            }
-
-
-            tk::spline s;
-
-            s.set_points(ptsx, ptsy);
-
             for (int i = 0; i < previous_path_x.size(); i++) {
                 next_x_vals.push_back(previous_path_x[i]);
                 next_y_vals.push_back(previous_path_y[i]);
 
             }
 
-            double target_x = 30.0;
-            double target_y = s(target_x);
-            double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
+            int next_size = 50 - previous_path_x.size();
 
-            double x_add_on = 0;
+            vector<double>car_status;
+            car_status.push_back(car_s);
+            car_status.push_back(ref_x);
+            car_status.push_back(ref_y);
+            car_status.push_back(ref_yaw);
+            car_status.push_back(ref_vel);
 
-            // n x 0.02 x velocity = d
-            for (int i = 0; i <= 50 - previous_path_x.size(); i++) {
-                double N = (target_dist / (.02*ref_vel/2.24));
-                double x_point = x_add_on + (target_x)/N;
-                double y_point = s(x_point);
+            vector<vector<double>> pre_points;
+            pre_points.push_back(ptsx);
+            pre_points.push_back(ptsy);
 
-                x_add_on = x_point;
-
-                double x_ref = x_point;
-                double y_ref = y_point;
-
-                x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
-                y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
-
-                x_point += ref_x;
-                y_point += ref_y;
-
-                next_x_vals.push_back((x_point));
-                next_y_vals.push_back((y_point));
+            vector<vector<double>> map_waypoints;
+            map_waypoints.push_back(map_waypoints_s);
+            map_waypoints.push_back(map_waypoints_x);
+            map_waypoints.push_back(map_waypoints_y);
 
 
-            }
+            tk::spline s = generate_trajectory(lane, car_status, pre_points, map_waypoints);
+
+//            vector<int> next_lanes = fms(lane);
+//            vector<tk::spline> next_s;
+//
+//            for (std::size_t i=0; i < next_lanes.size(); i++){
+//                next_s.push_back();
+//            }
+
+            vector<double> pre_x;
+            vector<double> pre_y;
+
+            generate_waypoints(s, next_size, car_status, pre_x, pre_y);
+
+//            std::cout << "x size: " << pre_x.size() << std::endl;
+//            std::cout << "y size: " << pre_y.size() << std::endl;
+
+            next_x_vals.insert(next_x_vals.end(), pre_x.begin(), pre_x.end());
+            next_y_vals.insert(next_y_vals.end(), pre_y.begin(), pre_y.end());
+
+//            double target_x = TARGET_X;
+//            double target_y = s(target_x);
+//            double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
+//
+//            double x_add_on = 0;
+//
+//            // n x 0.02 x velocity = d
+//            for (int i = 0; i < next_size; i++) {
+//                double N = (target_dist / (TIME_INTV*ref_vel/MAX_ACC));
+//                double x_point = x_add_on + (target_x)/N;
+//                double y_point = s(x_point);
+//
+//                x_add_on = x_point;
+//
+//                double x_ref = x_point;
+//                double y_ref = y_point;
+//
+//                x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
+//                y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
+//
+//                x_point += ref_x;
+//                y_point += ref_y;
+//
+//                next_x_vals.push_back((x_point));
+//                next_y_vals.push_back((y_point));
+//
+//            }
 
 
 
