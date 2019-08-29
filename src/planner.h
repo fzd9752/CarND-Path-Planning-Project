@@ -113,7 +113,7 @@ void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, 
 
     // n x 0.02 x velocity = d
     for (int i = 0; i < next_size; i++) {
-        double N = (target_dist / (TIME_INTV * ref_vel / MAX_ACC));
+        double N = (target_dist / (TIME_INTV * ref_vel / 2.24));
         double x_point = x_add_on + (target_x) / N;
         double y_point = s(x_point);
 
@@ -148,8 +148,8 @@ double nearest_dist(vector<double> x_points, vector<double> y_points, vector<dou
         double ve_vx = vehicle[2];
         double ve_vy = vehicle[3];
 
-        ve_x += ve_vx * n * TIME_INTV;
-        ve_y += ve_vy * n * TIME_INTV;
+        ve_x += ve_vx * (n+DELAY_N) * TIME_INTV;
+        ve_y += ve_vy * (n+DELAY_N) * TIME_INTV;
 
         double cur_x = x_points[n];
         double cur_y = y_points[n];

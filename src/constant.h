@@ -8,7 +8,7 @@
 
 #define MAX_SPEED 49.5
 
-#define MAX_ACC 2.24
+#define MAX_ACC .224
 
 #define TIME_INTV 0.02
 
@@ -16,11 +16,11 @@
 
 #define BUFFER 30.0
 
-#define AHEAD_BUFFER 15.0
+#define AHEAD_BUFFER 12.0
 
 #define AFTER_BUFFER 5.0
 
-#define DELAY 10
+#define DELAY_N 0
 
 
 
