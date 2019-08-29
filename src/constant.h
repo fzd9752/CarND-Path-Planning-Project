@@ -14,6 +14,8 @@
 
 #define TARGET_X 30.0
 
+#define BUFFER 30.0
+
 
 
 

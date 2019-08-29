@@ -121,44 +121,56 @@ int main() {
             }
 
             bool change_lane = false;
-//            vector<Vehicle> left_veh;
-//            vector<Vehicle> right_veh;
+            vector<vector<double>> vehicles;
 
 
             for (int i=0; i < sensor_fusion.size(); i++)
             {
-                float d = sensor_fusion[i][6];
-                
-                
-                
-                
-                
+                vector<double> ve;
+                double x = sensor_fusion[i][1];
+                double y = sensor_fusion[i][2];
 
-                if ((d < (2 + 4*lane+2)) && (d > (2+4*lane-2)))
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(vx*vx+vy*vy);
+                double check_car_s = sensor_fusion[i][5];
+                double d = sensor_fusion[i][6];
+
+                x += ((double)prev_size * TIME_INTV*vx);
+                y += ((double)prev_size * TIME_INTV*vy);
+
+                int check_lane;
+
+                if ((d < 4) && (d >=0)) {
+                    check_lane = 0;
+                } else if ((d >= 4) && (d < 8)) {
+                    check_lane = 1;
+                } else if ((d >= 8) && (d <= 12)) {
+                    check_lane = 2;
+                }
+
+                ve.push_back(x);
+                ve.push_back(y);
+                ve.push_back(vx);
+                ve.push_back(vy);
+                ve.push_back(check_lane);
+
+                vehicles.push_back(ve);
+
+                if (check_lane == lane)
                 {
-                    double vx = sensor_fusion[i][3];
-                    double vy = sensor_fusion[i][4];
-                    double check_speed = sqrt(vx*vx+vy*vy);
-                    double check_car_s = sensor_fusion[i][5];
+                    check_car_s += ((double)prev_size * TIME_INTV*check_speed);
 
-                    check_car_s += ((double)prev_size * 0.02*check_speed);
-
-                    if ((check_car_s > car_s) && ((check_car_s-car_s) < 30))
+                    if ((check_car_s > car_s) && ((check_car_s-car_s) < BUFFER))
                     {
-                        std::cout << "Consider to change lane";
+                        std::cout << "Consider to change lane"<< std::endl;
                         change_lane = true;
                     }
                 }
+
             }
 
-            if (change_lane)
-            {
-                ref_vel -= .224;
-            }
-            else if (ref_vel < MAX_SPEED)
-            {
-                ref_vel += .224;
-            }
+            std::cout << "Find Vehicles: " << vehicles.size() << "\n";
 
             vector<double> ptsx;
             vector<double> ptsy;
@@ -199,6 +211,9 @@ int main() {
 
             }
 
+
+            //
+
             int next_size = 50 - previous_path_x.size();
 
             vector<double>car_status;
@@ -217,6 +232,14 @@ int main() {
             map_waypoints.push_back(map_waypoints_x);
             map_waypoints.push_back(map_waypoints_y);
 
+            if (change_lane)
+            {
+                ref_vel -= .224;
+            }
+            else if (ref_vel < MAX_SPEED)
+            {
+                ref_vel += .224;
+            }
 
             tk::spline s = generate_trajectory(lane, car_status, pre_points, map_waypoints);
 
@@ -237,34 +260,6 @@ int main() {
 
             next_x_vals.insert(next_x_vals.end(), pre_x.begin(), pre_x.end());
             next_y_vals.insert(next_y_vals.end(), pre_y.begin(), pre_y.end());
-
-//            double target_x = TARGET_X;
-//            double target_y = s(target_x);
-//            double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
-//
-//            double x_add_on = 0;
-//
-//            // n x 0.02 x velocity = d
-//            for (int i = 0; i < next_size; i++) {
-//                double N = (target_dist / (TIME_INTV*ref_vel/MAX_ACC));
-//                double x_point = x_add_on + (target_x)/N;
-//                double y_point = s(x_point);
-//
-//                x_add_on = x_point;
-//
-//                double x_ref = x_point;
-//                double y_ref = y_point;
-//
-//                x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
-//                y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
-//
-//                x_point += ref_x;
-//                y_point += ref_y;
-//
-//                next_x_vals.push_back((x_point));
-//                next_y_vals.push_back((y_point));
-//
-//            }
 
 
 
