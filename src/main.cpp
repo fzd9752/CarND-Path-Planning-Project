@@ -58,9 +58,10 @@ int main() {
 
     double ref_vel = 5.0;
     int lane = 1; // 0-left, 1-middle, 2-right
+    bool changing = false;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel]
+               &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel, &changing]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -114,6 +115,9 @@ int main() {
 
             int prev_size = previous_path_x.size();
 
+            if (changing && ((car_d < 3+4*lane ) && (car_d > 1+4*lane))) {
+                changing = false;
+            }
 
             // Prediciton using sensor fusion
             if (prev_size > 0) {
@@ -121,7 +125,8 @@ int main() {
             }
 
             bool change_lane = false;
-            vector<vector<double>> vehicles;
+            vector<vector<double>> vehicles_ahead;
+            vector<vector<double>> vehicles_after;
 
 
             for (int i=0; i < sensor_fusion.size(); i++)
@@ -136,6 +141,7 @@ int main() {
                 double check_car_s = sensor_fusion[i][5];
                 double d = sensor_fusion[i][6];
 
+                check_car_s += ((double)prev_size * TIME_INTV*check_speed);
                 x += ((double)prev_size * TIME_INTV*vx);
                 y += ((double)prev_size * TIME_INTV*vy);
 
@@ -155,12 +161,11 @@ int main() {
                 ve.push_back(vy);
                 ve.push_back(check_lane);
 
-                vehicles.push_back(ve);
+                if (check_car_s > car_s) { vehicles_ahead.push_back(ve); }
+                else { vehicles_ahead.push_back(ve); }
 
                 if (check_lane == lane)
                 {
-                    check_car_s += ((double)prev_size * TIME_INTV*check_speed);
-
                     if ((check_car_s > car_s) && ((check_car_s-car_s) < BUFFER))
                     {
                         std::cout << "Consider to change lane"<< std::endl;
@@ -170,7 +175,7 @@ int main() {
 
             }
 
-            std::cout << "Find Vehicles: " << vehicles.size() << "\n";
+//            std::cout << "Find Vehicles: " << vehicles.size() << "\n";
 
             vector<double> ptsx;
             vector<double> ptsy;
@@ -241,19 +246,94 @@ int main() {
                 ref_vel += .224;
             }
 
+//            tk::spline s = generate_trajectory(lane, car_status, pre_points, map_waypoints);
+//            vector<double> pre_x;
+//            vector<double> pre_y;
+//            generate_waypoints(s, next_size, car_status, pre_x, pre_y);
+
+
+
+
+
+            int target_lane = lane;
+
+            if (change_lane && changing == false) {
+                vector<int> next_lanes = fms(lane);
+                vector<tk::spline> next_s;
+                vector<vector<double>> pre_waypoints_x;
+                vector<vector<double>> pre_waypoints_y;
+                vector<double> costs;
+
+                vector<double> closests_ahead;
+                vector<double> closests_after;
+                vector<double> space;
+
+
+                std::cout<< "Calculate possible trajectories" << "\n";
+                for (std::size_t i = 0; i < next_lanes.size(); i++) {
+                    tk::spline poss_s = generate_trajectory(next_lanes[i], car_status, pre_points, map_waypoints);
+                    vector<double> poss_x;
+                    vector<double> poss_y;
+                    generate_waypoints(poss_s, next_size, car_status, poss_x, poss_y);
+                    pre_waypoints_x.push_back(poss_x);
+                    pre_waypoints_x.push_back(poss_x);
+
+                    double dist_ahead;
+                    double closest_ahead = 999999.0;
+                    double dist_after = 999.0;
+                    double closest_after = 999.0;
+
+                    for (std::size_t j=0; j<vehicles_ahead.size(); j++) {
+                        if (vehicles_ahead[j][4] == next_lanes[i]) {
+                            dist_ahead = nearest_dist(poss_x, poss_y, vehicles_ahead[j]);
+//                        std::cout << "dist: " << dist << "\n";
+                            if (dist_ahead < closest_ahead) { closest_ahead = dist_ahead; }
+                        }
+
+                    }
+                    for (std::size_t j=0; j<vehicles_after.size(); j++) {
+                        if (vehicles_after[j][4] == next_lanes[i]) {
+                            dist_after = nearest_dist(poss_x, poss_y, vehicles_after[j]);
+//                        std::cout << "dist: " << dist << "\n";
+                            if (dist_after < closest_after) { closest_after = dist_after; }
+                        }
+
+                    }
+                    std::cout << "For change to lane " << i << "\n";
+                    std::cout << "closest: " << closest_ahead << "\n";
+                    closests_ahead.push_back(closest_ahead);
+                    closests_after.push_back(closest_after);
+                    space.push_back(closest_ahead + closest_after);
+                    std::cout << "For change to lane " << i << "\n";
+                    std::cout << "closest_ahead: " << closest_ahead << "\n";
+                    std::cout << "closest_after: " << closest_after << "\n";
+                    std::cout << "closest_space: " << closest_ahead + closest_after << "\n";
+                }
+                std::vector<double>::iterator biggest = std::max_element(closests_ahead.begin(), closests_ahead.end());
+                int ind = std::distance(std::begin(closests_ahead), biggest);
+
+                std::cout << "Prepare change lane to " << next_lanes[ind] << "\n";
+                if (closests_ahead[ind] >= AHEAD_BUFFER && closests_after[ind] >= AFTER_BUFFER) {
+                    target_lane = next_lanes[ind];
+                    changing = true;
+                    std::cout << "Change Line " <<  changing << "\n";
+                }
+
+
+
+            }
+
+            lane = target_lane;
+
             tk::spline s = generate_trajectory(lane, car_status, pre_points, map_waypoints);
-
-//            vector<int> next_lanes = fms(lane);
-//            vector<tk::spline> next_s;
-//
-//            for (std::size_t i=0; i < next_lanes.size(); i++){
-//                next_s.push_back();
-//            }
-
             vector<double> pre_x;
             vector<double> pre_y;
-
             generate_waypoints(s, next_size, car_status, pre_x, pre_y);
+//            for (auto it:closests) {
+//                std::cout << "closest distance: " << it <<"\n";
+//            }
+
+//            generate_waypoints(s, next_size, car_status, pre_x, pre_y);
 
 //            std::cout << "x size: " << pre_x.size() << std::endl;
 //            std::cout << "y size: " << pre_y.size() << std::endl;

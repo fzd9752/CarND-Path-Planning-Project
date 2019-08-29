@@ -16,6 +16,12 @@
 
 #define BUFFER 30.0
 
+#define AHEAD_BUFFER 15.0
+
+#define AFTER_BUFFER 5.0
+
+#define DELAY 10
+
 
 
 

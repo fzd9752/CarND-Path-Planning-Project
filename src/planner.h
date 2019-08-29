@@ -95,6 +95,9 @@ tk::spline generate_trajectory(int lane, vector<double> car_status, vector<vecto
 
 }
 
+/*
+ * Generate x, y points based on trajectory generator and prediction point
+ */
 void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, vector<double> &pre_x, vector<double> &pre_y) {
 
     double ref_x = car_status[1];
@@ -132,5 +135,33 @@ void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, 
 
 }
 
+/*
+ * Calculate closest distance between generated trajectory and vehicles
+ */
+double nearest_dist(vector<double> x_points, vector<double> y_points, vector<double> vehicle) {
+
+    double closest = 9999999.0;
+    double dist;
+    for (int n=0; n<x_points.size(); n++){
+        double ve_x = vehicle[0];
+        double ve_y = vehicle[1];
+        double ve_vx = vehicle[2];
+        double ve_vy = vehicle[3];
+
+        ve_x += ve_vx * n * TIME_INTV;
+        ve_y += ve_vy * n * TIME_INTV;
+
+        double cur_x = x_points[n];
+        double cur_y = y_points[n];
+
+        dist = distance(ve_x, ve_y, cur_x, cur_y);
+    }
+//    std::cout << "dist: " << dist << "\n";
+    if (dist < closest) {
+        closest = dist;
+    }
+//    std::cout << "closest: " << closest << "\n";
+    return closest;
+}
 
 #endif //PATH_PLANNING_PLANNER_H
