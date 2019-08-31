@@ -1,16 +1,44 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
-### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
+ 
+![img1](img/example1.png)  
 
-To run the simulator on Mac/Linux, first make the binary file executable with the following command:
-```shell
-sudo chmod u+x {simulator_file_name}
-```
+![img1](img/example2.png) 
 
-### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+Example Video is in the *video* folder.
+
+## Reflection
+
+### TODO & Complete
+
+- [x] Speed Limit: -10 MPH ~ 50MPH
+- [x] Total acceleration < 10 m/s^2
+- [x] Jerk 10 m/s^3
+- [x] Keep driving in the middle of a lane
+- [x] Change lane according to the sensor fusion and environment info.
+- [x] At least 5 miles automotive driving without collison
+
+### Process to make a path planner
+
+In this project, I practice to create a path planner, which includes behaviour planning and trajectory generator.
+
+#### Behaviour Planning -- Finite States Machine
+
+I create a FSM in respect of the simulator info. This is a tricky design of the FSM in this project. Because the simulator only have 3 lanes, and there is no requirement to turn over, I gave up the traditional method of designning states as `keep lane`, `turn left`, `turn right`. I designed the states as `lane left`, `lane middle`, `lane right`. This could help save the time and code to create next possible states for the car. Each `lane` could change to `lane 1` and their own `lane`. Only `lane 1` can change to `lane 0` and `lane 2`.
+
+#### Trajectory Generator
+
+I use `spline.h` library to generate possible trajectories for the FSM states, which fits a cubic polynomial lane according to the reference points (includes start points and relative points). Then, use the polynomial function to generate map x and y points during the interval time (0.02s). Cubic polynomial generator is a really simple and effective method to generate the trajectories, but there're some disadvatages about it. First, the polynomial function it generated could only calculate the positon based on time, but not including the accelerator and speed info. Comparing to `JMT` , it needs another method to calculate the relative speed and can't minimise the jerk.
+
+#### Cost function
+
+Here is not a direct cost funtion series I used to limit and choose final trajectory. I use a tricky `buffer` to decide if the ego car should start to change lane, then I calculate the distance between ego car and each othe vehicles, and divide distances to ahead vehicles and after vehicles. The ego vehicle chooses the trajectory with longest distance and avoid the collision.
+
+### Improvments & Future
+
+Here are many things that can do to improve the path planning. For instance, using JMT or A* to generate trajectories, adding prepare lane change to the FMS status. Also, the sensor fusion data could be handle more detailed. Currently, I didn't use contrast lane vehicles' data. There is less but not no possibility that the contrast lane vehicle cross the middle lane. That will be interesting, if a vehicle could prevent and perform well in that situation.
+
+---
 
 #### The map of the highway is in data/highway_map.txt
 Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
