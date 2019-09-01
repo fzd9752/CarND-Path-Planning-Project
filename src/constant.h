@@ -12,15 +12,19 @@
 
 #define TIME_INTV 0.02
 
-#define TARGET_X 30.0
+#define COLLISION_BUFFER 8.0
 
-#define BUFFER 30.0
-
-#define AHEAD_BUFFER 12.0
+#define AHEAD_BUFFER 10.0
 
 #define AFTER_BUFFER 5.0
 
-#define DELAY_N 0
+#define SHORT_BUFFER 15.0
+
+#define MIDDLE_BUFFER 20.0
+
+#define LONG_BUFFER 30.0
+
+#define CHANGE_BUFFER 100
 
 
 

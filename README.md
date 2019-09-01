@@ -1,11 +1,15 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
  
-![img1](img/example1.png)  
+![img1](img/12miles.png)  
 
-![img1](img/example2.png) 
+*12 miles safely autonomous driving in highway*
 
-Example Video is in the *video* folder.
+![img1](img/10miles.png) 
+
+*10 miles safely autonomous driving in highway*
+
+Example Video is in the **video** folder.
 
 ## Reflection
 
@@ -16,7 +20,7 @@ Example Video is in the *video* folder.
 - [x] Jerk 10 m/s^3
 - [x] Keep driving in the middle of a lane
 - [x] Change lane according to the sensor fusion and environment info.
-- [x] At least 5 miles automotive driving without collison
+- [x] At least 5 miles automotive driving without collision
 
 ### Process to make a path planner
 
@@ -24,19 +28,41 @@ In this project, I practice to create a path planner, which includes behaviour p
 
 #### Behaviour Planning -- Finite States Machine
 
-I create a FSM in respect of the simulator info. This is a tricky design of the FSM in this project. Because the simulator only have 3 lanes, and there is no requirement to turn over, I gave up the traditional method of designning states as `keep lane`, `turn left`, `turn right`. I designed the states as `lane left`, `lane middle`, `lane right`. This could help save the time and code to create next possible states for the car. Each `lane` could change to `lane 1` and their own `lane`. Only `lane 1` can change to `lane 0` and `lane 2`.
+I create a FSM in respect of the simulator info. This is a tricky design of the FSM in this project. Because the simulator only have 3 lanes, and there is no requirement to turn over, I gave up the traditional method of designing states as `keep lane`, `turn left`, `turn right`. I designed the states as `lane left`, `lane middle`, `lane right`. This could help save the time and code to create next possible states for the car. Each `lane` could change to `lane 1` and their own `lane`. Only `lane 1` can change to `lane 0` and `lane 2`.
+
+There is a problem to use this `lane` as status -- the vehicle could change lane continuously. This is why that I add variable `waiting` and `changing` to control the interval of two change lane behaviour. 
 
 #### Trajectory Generator
 
-I use `spline.h` library to generate possible trajectories for the FSM states, which fits a cubic polynomial lane according to the reference points (includes start points and relative points). Then, use the polynomial function to generate map x and y points during the interval time (0.02s). Cubic polynomial generator is a really simple and effective method to generate the trajectories, but there're some disadvatages about it. First, the polynomial function it generated could only calculate the positon based on time, but not including the accelerator and speed info. Comparing to `JMT` , it needs another method to calculate the relative speed and can't minimise the jerk.
+I use `spline.h` library to generate possible trajectories for the FSM states, which fits a cubic polynomial lane according to the reference points (includes start points and relative points). Then, use the polynomial function to generate map x and y points during the interval time (0.02s). Cubic polynomial generator is a really simple and effective method to generate the trajectories, but there're some disadvantages about it. First, the polynomial function it generated could only calculate the position based on time, but not including the accelerator and speed info. Comparing to `JMT` , it needs another method to calculate the relative speed and can't minimise the jerk.
+
+The `speed` and `accelerator` is the variable that needs to be decided by environment. I used a series of `BUFFER` to decide nest speed. The basic logic is: if the distance before ahead car and ego vehicle is less than `SHORT BUFFER`, the vehicle brake with max accelerator; if the distance is between `SHORT BUFFER` and `MIDDLE BUFFER`, the ego vehicle brake with a ratio accelerator of ahead vehicle and current speed; if the distance is between `SHORT BUFFER` and `MIDDLE BUFFER`, the ego vehicle accelerate to the maximum speed with a ratio accelerator. This strategy make the vehicle could keep a safe distance with ahead car when following.
 
 #### Cost function
 
-Here is not a direct cost funtion series I used to limit and choose final trajectory. I use a tricky `buffer` to decide if the ego car should start to change lane, then I calculate the distance between ego car and each othe vehicles, and divide distances to ahead vehicles and after vehicles. The ego vehicle chooses the trajectory with longest distance and avoid the collision.
+Here is 4 cost I used to limit and choose final trajectory. 
 
-### Improvments & Future
+The `collision` calculates the distance between ego vehicle and every vehicle in the current and target lane. The distance which is shorter than minimum distance will be punished. The weight for this punishment is heavy.
 
-Here are many things that can do to improve the path planning. For instance, using JMT or A* to generate trajectories, adding prepare lane change to the FMS status. Also, the sensor fusion data could be handle more detailed. Currently, I didn't use contrast lane vehicles' data. There is less but not no possibility that the contrast lane vehicle cross the middle lane. That will be interesting, if a vehicle could prevent and perform well in that situation.
+`cost_space_ahead` and `cost_space_after` calculates the distance between ego vehicle and target lane closest vehicles at current time. This will guarantee the enough space for changing lane.
+
+The last cost function is `keep_lane`, which punish the changing lane behaviour. It prevent the vehicle frequently changing lane caused by trivial cost difference.
+
+
+### Improvements & Future
+
+The ego vehicle still have the continuous changing behaviour. In the crowed circumstance, over maximum jerk and collision happen occasionally. Also, vehicle cannot handle the sudden changing lane of other cars.
+
+Here are many things that can do to fix and improve the current path planning. 
+For instance, using JMT or A* to generate trajectories, adding prepare lane change to the FMS status, extending a behaviour to solve the emergency situation (like other vehicle sudden changing lane, see [example](videos/accident_480.mov)) 
+
+The sensor fusion data could be handled more detailed. Currently, I didn't use contrast lane vehicles' data. There is less but not no possibility that the contrast lane vehicle cross the middle lane. That will be interesting, if a vehicle could prevent and perform well in that situation.
+
+##### TODO
+- [] Reconstruct the code
+- [] Add `A*` and `JMT` trajectory generators
+- [] Improve `FMS` behaviour generator
+- [] Add *emergency* module 
 
 ---
 
@@ -170,4 +196,3 @@ still be compilable with cmake and make./
 
 ## How to write a README
 A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-

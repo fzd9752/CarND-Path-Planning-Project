@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <math.h>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
@@ -16,8 +17,7 @@
 #ifndef PATH_PLANNING_PLANNER_H
 #define PATH_PLANNING_PLANNER_H
 
-using std::string;
-using std::vector;
+using namespace std;
 
 /*
  * FMS for decide possible lane for the trajectory generator
@@ -31,7 +31,8 @@ vector<int> fms(int lane) {
     if (lane == 1) {
         lanes.push_back(0);
         lanes.push_back(2);
-    }
+    } else if (lane == 0) {lanes.push_back(0);}
+    else if (lane == 2) {lanes.push_back(2);}
     return lanes;
 }
 
@@ -39,7 +40,7 @@ vector<int> fms(int lane) {
  * Generate polynomial function of the trajectory
  * return a tk::spline
  */
-tk::spline generate_trajectory(int lane, vector<double> car_status, vector<vector<double>> pre_points,
+tk::spline generate_trajectory(int lane, double target_s, vector<double> car_status, vector<vector<double>> pre_points,
                        vector<vector<double>> map_waypoints) {
 
     double car_s = car_status[0];
@@ -57,7 +58,7 @@ tk::spline generate_trajectory(int lane, vector<double> car_status, vector<vecto
 
 
     //add three points ahead current state, space 30m
-    vector<double> next_wp0 = getXY(car_s + 30, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
+    vector<double> next_wp0 = getXY(car_s + target_s, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
                                     map_waypoints_y);
     vector<double> next_wp1 = getXY(car_s + 60, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
                                     map_waypoints_y);
@@ -98,14 +99,13 @@ tk::spline generate_trajectory(int lane, vector<double> car_status, vector<vecto
 /*
  * Generate x, y points based on trajectory generator and prediction point
  */
-void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, vector<double> &pre_x, vector<double> &pre_y) {
+void generate_waypoints(tk::spline s, int next_size, double ref_vel, double target_x, vector<double> car_status,
+        vector<double> &pre_x, vector<double> &pre_y) {
 
     double ref_x = car_status[1];
     double ref_y = car_status[2];
     double ref_yaw = car_status[3];
-    double ref_vel = car_status[4];
 
-    double target_x = TARGET_X;
     double target_y = s(target_x);
     double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
 
@@ -113,7 +113,7 @@ void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, 
 
     // n x 0.02 x velocity = d
     for (int i = 0; i < next_size; i++) {
-        double N = (target_dist / (TIME_INTV * ref_vel / 2.24));
+        double N = (target_dist ) / (TIME_INTV * ref_vel / 2.24);
         double x_point = x_add_on + (target_x) / N;
         double y_point = s(x_point);
 
@@ -128,8 +128,8 @@ void generate_waypoints(tk::spline s, int next_size, vector<double> car_status, 
         x_point += ref_x;
         y_point += ref_y;
 
-        pre_x.push_back((x_point));
-        pre_y.push_back((y_point));
+            pre_x.push_back((x_point));
+            pre_y.push_back((y_point));
 
     }
 
@@ -148,8 +148,8 @@ double nearest_dist(vector<double> x_points, vector<double> y_points, vector<dou
         double ve_vx = vehicle[2];
         double ve_vy = vehicle[3];
 
-        ve_x += ve_vx * (n+DELAY_N) * TIME_INTV;
-        ve_y += ve_vy * (n+DELAY_N) * TIME_INTV;
+        ve_x += ve_vx * (n) * TIME_INTV;
+        ve_y += ve_vy * (n) * TIME_INTV;
 
         double cur_x = x_points[n];
         double cur_y = y_points[n];
@@ -162,6 +162,46 @@ double nearest_dist(vector<double> x_points, vector<double> y_points, vector<dou
     }
 //    std::cout << "closest: " << closest << "\n";
     return closest;
+}
+
+double collision(double dist) {
+    if (dist < COLLISION_BUFFER) {return 1.0;}
+    else {return 0.0;}
+}
+
+double cost_speed(double speed) {
+
+    return 1-exp(-(abs(MAX_SPEED - speed)/MAX_SPEED));
+}
+
+double cost_space_ahead(int lane, vector<int> next_lanes, vector<double>vehicle_dis, double limit = 5) {
+    if (vehicle_dis[lane] > 100) {
+        return -1;
+    } else if ((vehicle_dis[lane]) < limit)
+    {
+        return 1;
+    } else {
+        double sum = 0;
+        for (int l:next_lanes) {
+            sum += vehicle_dis[l];
+        }
+        return 1-exp(-(sum-vehicle_dis[lane])/sum);
+    }
+}
+
+double cost_space_after(int lane, vector<int> next_lanes, vector<double>vehicle_dis, double limit = 5) {
+    if (vehicle_dis[lane] > 20) {
+        return 0;
+    } else if ((vehicle_dis[lane]) < limit)
+    {
+        return 1;
+    } else {
+        double sum = 0;
+        for (int l:next_lanes) {
+            sum += vehicle_dis[l];
+        }
+        return 1-exp(-(sum-vehicle_dis[lane])/sum);
+    }
 }
 
 #endif //PATH_PLANNING_PLANNER_H
